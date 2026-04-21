@@ -54,7 +54,18 @@ server.tool(
 server.tool(
   "get_urban_facility",
   "Return 도시계획시설 overlaps: 도로, 교통시설, 공간시설(공원·녹지), 유통공급, 공공문화체육, 방재, 보건위생, 환경기초, 기타기반시설. Overlap with 도시계획시설 triggers 건축제한 (국계법 제64조) or 미집행 저촉 리스크. Exact 저촉 면적 needs geometric intersection, not returned here.",
-  QUERY_SCHEMA,
+  {
+    ...QUERY_SCHEMA,
+    radius_m: z
+      .number()
+      .int()
+      .min(0)
+      .max(500)
+      .optional()
+      .describe(
+        "접함(nearby) 후보 탐지 반경(미터). 기본 50. 0이면 저촉(overlap)만 반환. 최대 500."
+      ),
+  },
   getUrbanFacilityTool
 );
 

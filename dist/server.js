@@ -27,7 +27,16 @@ const QUERY_SCHEMA = {
 server.tool("resolve_parcel", "Resolve address or PNU → canonical parcel: PNU, 지번, parsed 지목 (e.g. 공장용지), refined address, WGS84 coordinates, 공시지가, administrative hierarchy. Foundation for all other tools.", QUERY_SCHEMA, resolveParcelTool);
 server.tool("get_zoning", "Return 용도지역 (도시/관리/농림/자연환경보전 + subclass), 용도지구 (경관/고도/방화/방재/보호/취락/개발진흥/특정용도제한), 용도구역 (개발제한/도시자연공원), and 토지거래허가구역 overlays. Empty array = no overlay at this point (not an error). Use the zone name with korean-law MCP to get 건폐율·용적률.", QUERY_SCHEMA, getZoningTool);
 server.tool("get_district_plan", "Return 지구단위계획구역 membership and 개발행위허가제한지역 overlays. When district_plan is non-empty, 건폐율·용적률·용도 may be overridden by the plan (see 국토계획법 제52조). V-World only returns the geometric hit — actual plan text must come from 지자체 고시문.", QUERY_SCHEMA, getDistrictPlanTool);
-server.tool("get_urban_facility", "Return 도시계획시설 overlaps: 도로, 교통시설, 공간시설(공원·녹지), 유통공급, 공공문화체육, 방재, 보건위생, 환경기초, 기타기반시설. Overlap with 도시계획시설 triggers 건축제한 (국계법 제64조) or 미집행 저촉 리스크. Exact 저촉 면적 needs geometric intersection, not returned here.", QUERY_SCHEMA, getUrbanFacilityTool);
+server.tool("get_urban_facility", "Return 도시계획시설 overlaps: 도로, 교통시설, 공간시설(공원·녹지), 유통공급, 공공문화체육, 방재, 보건위생, 환경기초, 기타기반시설. Overlap with 도시계획시설 triggers 건축제한 (국계법 제64조) or 미집행 저촉 리스크. Exact 저촉 면적 needs geometric intersection, not returned here.", {
+    ...QUERY_SCHEMA,
+    radius_m: z
+        .number()
+        .int()
+        .min(0)
+        .max(500)
+        .optional()
+        .describe("접함(nearby) 후보 탐지 반경(미터). 기본 50. 0이면 저촉(overlap)만 반환. 최대 500."),
+}, getUrbanFacilityTool);
 server.tool("get_other_law_designations", "Return '다른 법령에 따른 지정사항' overlays — ~38 layers across 농지/산림/산업단지/수질·환경/축산/문화재/자연공원/특수지구/주거정비/재해/해양/항공. Each hit includes governing_law and a triggers_priority_delegation flag. When any flag is true, 국토계획법 제76조⑤ priority delegation applies and the governing_law's 행위제한 overrides the 국토계획법 시행령 별표 — look up those provisions via korean-law MCP first.", QUERY_SCHEMA, getOtherLawDesignationsTool);
 server.tool("get_land_attributes", "Return detailed parcel attributes: parsed 지목 (28-type mapping), 지번 components, 공시지가, administrative breakdown, and 건축물 presence at the point. Note: 면적(land area) is NOT provided — V-World doesn't expose 토지대장 area field.", QUERY_SCHEMA, getLandAttributesTool);
 server.tool("analyze_parcel", "One-shot comprehensive analysis — chains all the above tools and returns a single integrated record: parcel + zoning + district_plan + urban_facility + other_law_designations + priority_delegation_hint + buildings + next_steps. Use this when you want a complete 토지이용계획확인서-equivalent JSON in one call. next_steps tells you exactly which korean-law MCP queries to run afterward.", QUERY_SCHEMA, analyzeParcelTool);
