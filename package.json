@@ -9,7 +9,8 @@
     "dev": "tsx watch src/server.ts",
     "build": "tsc",
     "start": "node dist/server.js",
-    "test": "echo \"No tests yet\" && exit 0"
+    "test": "vitest run",
+    "test:watch": "vitest"
   },
   "keywords": [
     "mcp",
@@ -24,8 +25,16 @@
     "government-data",
     "ai-tools"
   ],
-  "author": "Your Name / MCP Designer",
+  "author": "UrbanWatcherKr (https://github.com/UrbanWatcherKr)",
   "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/UrbanWatcherKr/korean-land-mcp.git"
+  },
+  "bugs": {
+    "url": "https://github.com/UrbanWatcherKr/korean-land-mcp/issues"
+  },
+  "homepage": "https://github.com/UrbanWatcherKr/korean-land-mcp#readme",
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.0.0",
     "axios": "^1.7.9",
@@ -38,7 +47,8 @@
     "@types/express": "^5.0.0",
     "@types/node": "^22.10.5",
     "tsx": "^4.19.2",
-    "typescript": "^5.7.3"
+    "typescript": "^5.7.3",
+    "vitest": "^2.1.9"
   },
   "engines": {
     "node": ">=18.0.0"

@@ -1,172 +1,132 @@
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/streamableHttp.js";
-import express from "express"; // Note: add express to deps if using full HTTP
+import express from "express";
 import dotenv from "dotenv";
 import { z } from "zod";
+import { randomUUID } from "node:crypto";
 
-// Import tools
-import { searchLandUseTool } from "./tools/search_land_use.js";
-import { getLandDetailsTool } from "./tools/get_land_details.js";
-import { searchUrbanPlanningTool } from "./tools/search_urban_planning.js";
-import { getRegulationLawsTool } from "./tools/get_regulation_laws.js";
-import { searchPublicNoticesTool } from "./tools/search_public_notices.js";
-import { queryDataOpenTool } from "./tools/query_data_open.js";
-import { verifyLandCitationsTool } from "./tools/verify_land_citations.js";
-import { chainLandAnalysisTool } from "./tools/chain_land_analysis.js";
-import { getTerminologyTool } from "./tools/get_terminology.js";
-import { getPermitExamplesTool } from "./tools/get_permit_examples.js";
+import { resolveParcelTool } from "./tools/resolve_parcel.js";
+import { getZoningTool } from "./tools/get_zoning.js";
+import { getDistrictPlanTool } from "./tools/get_district_plan.js";
+import { getUrbanFacilityTool } from "./tools/get_urban_facility.js";
+import { getOtherLawDesignationsTool } from "./tools/get_other_law_designations.js";
+import { getLandAttributesTool } from "./tools/get_land_attributes.js";
+import { analyzeParcelTool } from "./tools/analyze_parcel.js";
 
 dotenv.config();
 
 const server = new McpServer({
   name: "korean-land-mcp",
-  version: "1.0.0",
-  description: "MCP Server for 토지이음 (EUM) - Korean Land Use Planning, Zoning & Urban Information System. Provides unified, hallucination-resistant access to official Korean government land data."
+  version: "2.0.0",
+  description:
+    "Korean parcel & zoning MCP backed by V-World. Resolves addresses/PNUs into spatial facts (필지, 용도지역/지구/구역, 지구단위계획, 도시계획시설, 다른 법령 지정사항). No mock fallback — failures are real errors. For 법령·조례 text, pair with korean-law MCP.",
 });
 
-// Register all tools
+const QUERY_SCHEMA = {
+  query: z
+    .string()
+    .min(2)
+    .describe("Korean address (e.g. '경기도 평택시 포승읍 내기리 680') or 19-digit PNU"),
+};
+
 server.tool(
-  "search_land_use",
-  "Search land use plan (토지이용계획) by address, lot number (지번), road name or building name. Returns zoning (용도지역/지구/구역), building-to-land ratio (건폐율), floor area ratio (용적률), restrictions, and regulatory info. Primary tool for property research.",
-  {
-    address: z.string().describe("Full address, e.g. '경기 수원시 장안구 정자동 1-1' or '서울특별시 강남구 테헤란로 123'"),
-    include_map: z.boolean().optional().default(true).describe("Include map/image links if available")
-  },
-  searchLandUseTool
+  "resolve_parcel",
+  "Resolve address or PNU → canonical parcel: PNU, 지번, parsed 지목 (e.g. 공장용지), refined address, WGS84 coordinates, 공시지가, administrative hierarchy. Foundation for all other tools.",
+  QUERY_SCHEMA,
+  resolveParcelTool
 );
 
 server.tool(
-  "get_land_details",
-  "Get detailed parcel information including PNU (고유번호), ownership type, current use, appraisal value hints, and full regulatory overlay.",
-  {
-    identifier: z.string().describe("PNU code (19 digits) or full address")
-  },
-  getLandDetailsTool
+  "get_zoning",
+  "Return 용도지역 (도시/관리/농림/자연환경보전 + subclass), 용도지구 (경관/고도/방화/방재/보호/취락/개발진흥/특정용도제한), 용도구역 (개발제한/도시자연공원), and 토지거래허가구역 overlays. Empty array = no overlay at this point (not an error). Use the zone name with korean-law MCP to get 건폐율·용적률.",
+  QUERY_SCHEMA,
+  getZoningTool
 );
 
 server.tool(
-  "search_urban_planning",
-  "Search urban/city planning information (도시계획), district unit plans, development projects by keyword or region.",
-  {
-    query: z.string().describe("Search keyword e.g. '강남구 지구단위계획' or city name"),
-    region: z.string().optional().describe("Optional region filter e.g. '서울'")
-  },
-  searchUrbanPlanningTool
+  "get_district_plan",
+  "Return 지구단위계획구역 membership and 개발행위허가제한지역 overlays. When district_plan is non-empty, 건폐율·용적률·용도 may be overridden by the plan (see 국토계획법 제52조). V-World only returns the geometric hit — actual plan text must come from 지자체 고시문.",
+  QUERY_SCHEMA,
+  getDistrictPlanTool
 );
 
 server.tool(
-  "get_regulation_laws",
-  "Retrieve regulatory law collection (규제법령집) related to land use, zoning restrictions, and relevant ordinances.",
-  {
-    keyword: z.string().optional().describe("Optional keyword e.g. '용도지역' or '개발행위허가'")
-  },
-  getRegulationLawsTool
+  "get_urban_facility",
+  "Return 도시계획시설 overlaps: 도로, 교통시설, 공간시설(공원·녹지), 유통공급, 공공문화체육, 방재, 보건위생, 환경기초, 기타기반시설. Overlap with 도시계획시설 triggers 건축제한 (국계법 제64조) or 미집행 저촉 리스크. Exact 저촉 면적 needs geometric intersection, not returned here.",
+  QUERY_SCHEMA,
+  getUrbanFacilityTool
 );
 
 server.tool(
-  "search_public_notices",
-  "Search recent public notices (고시정보) for urban planning decisions, land use changes, development projects.",
-  {
-    keyword: z.string().optional().describe("Filter by keyword"),
-    limit: z.number().int().min(1).max(20).optional().default(5)
-  },
-  searchPublicNoticesTool
+  "get_other_law_designations",
+  "Return '다른 법령에 따른 지정사항' overlays — ~38 layers across 농지/산림/산업단지/수질·환경/축산/문화재/자연공원/특수지구/주거정비/재해/해양/항공. Each hit includes governing_law and a triggers_priority_delegation flag. When any flag is true, 국토계획법 제76조⑤ priority delegation applies and the governing_law's 행위제한 overrides the 국토계획법 시행령 별표 — look up those provisions via korean-law MCP first.",
+  QUERY_SCHEMA,
+  getOtherLawDesignationsTool
 );
 
 server.tool(
-  "query_data_open",
-  "Query open datasets (데이터개방) from 토지이음 including development permits, land use regulation CSV/API data. Use dataCd from official list (e.g. '001' for 개발행위허가정보).",
-  {
-    dataCd: z.string().describe("Dataset code e.g. '001', '006', '007'"),
-    params: z.record(z.any()).optional().describe("Additional query parameters")
-  },
-  queryDataOpenTool
+  "get_land_attributes",
+  "Return detailed parcel attributes: parsed 지목 (28-type mapping), 지번 components, 공시지가, administrative breakdown, and 건축물 presence at the point. Note: 면적(land area) is NOT provided — V-World doesn't expose 토지대장 area field.",
+  QUERY_SCHEMA,
+  getLandAttributesTool
 );
 
 server.tool(
-  "verify_land_citations",
-  "Hallucination prevention tool. Extracts land-related legal citations (e.g. '국토의 계획 및 이용에 관한 법률 제36조', '건축법 제11조') from text and verifies against official sources. Returns VALID / INVALID / NOT_FOUND with explanation.",
-  {
-    text: z.string().min(10).describe("Text containing potential land law citations or regulatory references")
-  },
-  verifyLandCitationsTool
+  "analyze_parcel",
+  "One-shot comprehensive analysis — chains all the above tools and returns a single integrated record: parcel + zoning + district_plan + urban_facility + other_law_designations + priority_delegation_hint + buildings + next_steps. Use this when you want a complete 토지이용계획확인서-equivalent JSON in one call. next_steps tells you exactly which korean-law MCP queries to run afterward.",
+  QUERY_SCHEMA,
+  analyzeParcelTool
 );
 
-server.tool(
-  "chain_land_analysis",
-  "Comprehensive multi-step land research chain. Analyzes development potential, purchase risks, regulatory compliance, or custom scenarios. Automatically chains relevant tools and provides actionable insights with legal basis.",
-  {
-    query: z.string().describe("Natural language query e.g. '서울 강남구 아파트 부지 개발 가능성 분석' or '이 토지에 상가 건축 시 규제는?'"),
-    scenario: z.enum(["development", "purchase", "regulation_check", "custom"]).optional().default("custom")
-  },
-  chainLandAnalysisTool
-);
-
-server.tool(
-  "get_terminology",
-  "Search the official land terminology dictionary (용어사전) for definitions of planning, zoning, and real estate terms.",
-  {
-    term: z.string().describe("Term to look up e.g. '용도지역', '건폐율', '지구단위계획'")
-  },
-  getTerminologyTool
-);
-
-server.tool(
-  "get_permit_examples",
-  "Retrieve easy-to-understand permit case examples (쉬운 인허가 사례) for common land development and building permit scenarios.",
-  {
-    type: z.string().optional().describe("Permit type e.g. '개발행위허가', '건축허가', '용도변경'")
-  },
-  getPermitExamplesTool
-);
-
-// Add discover tool for completeness
 server.tool(
   "discover_tools",
-  "List all available tools with descriptions and usage examples. Helps AI discover capabilities dynamically.",
+  "List all currently wired tools in this MCP build.",
   {},
   async () => ({
-    content: [{
-      type: "text",
-      text: `Available tools in korean-land-mcp v1.0:
-- search_land_use: Primary land search by address
-- get_land_details: Detailed parcel info
-- search_urban_planning, get_regulation_laws, search_public_notices
-- query_data_open, verify_land_citations (hallucination guard)
-- chain_land_analysis (smart chaining), get_terminology, get_permit_examples
-
-Use natural language with Claude/Cursor to invoke. All data sourced from official eum.go.kr / 국토교통부.`
-    }]
+    content: [
+      {
+        type: "text" as const,
+        text: [
+          "korean-land-mcp v2.0 — V-World backed, mock fallback REMOVED",
+          "",
+          "Tools:",
+          "- resolve_parcel(query): address|PNU → canonical parcel",
+          "- get_zoning(query): 용도지역·지구·구역 + 토지거래허가구역",
+          "- get_district_plan(query): 지구단위계획 + 개발행위허가제한",
+          "- get_urban_facility(query): 도시계획시설 9개 카테고리",
+          "- get_other_law_designations(query): 38개 개별법령 지정 (국계법 76조⑤ 우선위임 힌트 포함)",
+          "- get_land_attributes(query): 지목 파싱 + 공시지가 + 건물 유무",
+          "- analyze_parcel(query): 위 전체를 1회 호출로 체이닝",
+          "",
+          "Legal citations (법령·조례 원문) are intentionally out of scope — use korean-law MCP.",
+        ].join("\n"),
+      },
+    ],
   })
 );
 
-console.log("🚀 Korean Land MCP Server (토지이음 MCP) initialized with 10+ unified tools");
-
-// Start server - supports both stdio (for Claude Desktop) and HTTP
 const transportType = process.env.MCP_TRANSPORT || "stdio";
 
 if (transportType === "http") {
   const app = express();
   app.use(express.json());
-  
+
   const transport = new StreamableHTTPServerTransport({
-    sessionIdGenerator: () => crypto.randomUUID(),
+    sessionIdGenerator: () => randomUUID(),
   });
-  
   await server.connect(transport);
-  
+
   app.post("/mcp", async (req, res) => {
     await transport.handleRequest(req, res, req.body);
   });
-  
+
   const PORT = process.env.PORT || 3000;
   app.listen(PORT, () => {
-    console.log(`🌐 HTTP MCP Server listening on port ${PORT}`);
-    console.log(`   Endpoint: http://localhost:${PORT}/mcp`);
+    console.error(`HTTP MCP on :${PORT}/mcp`);
   });
 } else {
   const transport = new StdioServerTransport();
   await server.connect(transport);
-  console.log("📡 MCP Server running in stdio mode (ready for Claude Desktop / Cursor)");
+  console.error("korean-land-mcp v2.0 ready (stdio) — 7 tools wired");
 }
