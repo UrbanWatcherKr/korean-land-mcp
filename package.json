@@ -1,6 +1,6 @@
 {
   "name": "korean-land-mcp",
-  "version": "1.0.0",
+  "version": "2.0.0",
   "description": "MCP Server for Korean Land Information System (토지이음 / EUM) - Unified access to land use planning, zoning, urban planning, regulations, and open data for AI assistants",
   "main": "dist/server.js",
   "type": "module",
