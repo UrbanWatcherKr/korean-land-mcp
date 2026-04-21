@@ -71,6 +71,7 @@ export function featureToHit(layer: LayerDef, feature: VWorldFeature): OverlayHi
 export interface QueryOverlaysOptions {
   perLayerSize?: number;
   radius_m?: number;
+  geomFilter?: string;
 }
 
 export function pointToBox(point: { x: number; y: number }, radius_m: number): string {
@@ -86,9 +87,9 @@ export async function queryOverlays(
 ): Promise<OverlayQueryResult> {
   const options: QueryOverlaysOptions = typeof opts === "number" ? { perLayerSize: opts } : opts;
   const perLayerSize = options.perLayerSize ?? 5;
-  const geomFilter = options.radius_m && options.radius_m > 0
-    ? pointToBox(point, options.radius_m)
-    : undefined;
+  const geomFilter =
+    options.geomFilter ??
+    (options.radius_m && options.radius_m > 0 ? pointToBox(point, options.radius_m) : undefined);
 
   const results = await Promise.all(
     layers.map(async (layer) => {

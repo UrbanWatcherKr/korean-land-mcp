@@ -1,4 +1,4 @@
-import { resolveToPoint } from "../lib/resolve.js";
+import { resolveToParcel } from "../lib/resolve.js";
 import { parseJibun } from "../lib/jimok.js";
 import { queryOverlays, LayerDef } from "../lib/overlays.js";
 import { getFeatures, VWorldError } from "../lib/vworld.js";
@@ -98,19 +98,27 @@ const OTHER_LAW: LawLayerDef[] = [
 const EXTRA: LayerDef[] = [{ id: "LT_C_UQ141", label: "토지거래허가구역" }];
 
 export const analyzeParcelTool = async ({ query }: { query: string }) => {
-  const resolved = await resolveToPoint(query);
+  const resolved = await resolveToParcel(query);
   const point = resolved.point_wgs84;
   const parsed = parseJibun(resolved.jibun);
 
+  const wkt = resolved.parcel_wkt;
+  const precision: "polygon" | "point" = wkt ? "polygon" : "point";
+  const overlayOpts = wkt ? { geomFilter: wkt } : {};
+
   const [zoneQ, districtQ, areaQ, extraQ, planQ, facQ, lawQ, bldFeats] = await Promise.all([
-    queryOverlays(USE_ZONE, point),
-    queryOverlays(USE_DISTRICT, point),
-    queryOverlays(USE_AREA, point),
-    queryOverlays(EXTRA, point),
-    queryOverlays(DISTRICT_PLAN, point),
-    queryOverlays(URBAN_FAC, point),
-    queryOverlays(OTHER_LAW, point),
-    getFeatures({ layer: "LT_C_BLDGINFO", point, size: 5 }).catch((e) => {
+    queryOverlays(USE_ZONE, point, overlayOpts),
+    queryOverlays(USE_DISTRICT, point, overlayOpts),
+    queryOverlays(USE_AREA, point, overlayOpts),
+    queryOverlays(EXTRA, point, overlayOpts),
+    queryOverlays(DISTRICT_PLAN, point, overlayOpts),
+    queryOverlays(URBAN_FAC, point, overlayOpts),
+    queryOverlays(OTHER_LAW, point, overlayOpts),
+    getFeatures(
+      wkt
+        ? { layer: "LT_C_BLDGINFO", geomFilter: wkt, size: 10 }
+        : { layer: "LT_C_BLDGINFO", point, size: 5 }
+    ).catch((e) => {
       if (e instanceof VWorldError) return [];
       throw e;
     }),
@@ -201,6 +209,11 @@ export const analyzeParcelTool = async ({ query }: { query: string }) => {
       resolved_at: new Date().toISOString(),
       total_layers_queried:
         USE_ZONE.length + USE_DISTRICT.length + USE_AREA.length + EXTRA.length + DISTRICT_PLAN.length + URBAN_FAC.length + OTHER_LAW.length + 1,
+      precision,
+      precision_note:
+        precision === "polygon"
+          ? "Overlays were filtered by parcel polygon (WKT) — 필지 경계와 교차하는 레이어만 반환."
+          : "Polygon unavailable (parcel geometry missing); fell back to point-based lookup — 경계에 걸친 overlay는 누락 가능.",
     },
     disclaimer: DISCLAIMER,
   };

@@ -37,23 +37,25 @@
 
 ## 🚀 빠른 시작
 
-### 1. 설치
+### 1. 한 방에 셋업
 ```bash
 git clone https://github.com/UrbanWatcherKr/korean-land-mcp.git
 cd korean-land-mcp
-npm install
-npm run build
+npm run setup
 ```
 
-### 2. V-World API 키
-1. https://www.vworld.kr 에서 무료 발급
-2. `.env` 작성:
-```
-VWORLD_API_KEY=your_real_key_here
-VWORLD_DOMAIN=localhost
+`npm run setup` 은 `npm install` → `npm run build` → 인터랙티브 **configure** 순으로 실행됩니다. configure 단계에서 V-World API 키·도메인을 묻고 `.env` 파일을 자동 생성합니다.
+
+**V-World API 키 발급**: https://www.vworld.kr/dev/v4api.do (로그인 → 오픈API → 인증키 발급, 무료). 로컬 개발용이면 도메인은 `localhost`로 등록.
+
+### 2. 설정만 다시 하기
+API 키를 바꾸거나 도메인을 수정하고 싶으면 언제든:
+```bash
+npm run configure
 ```
 
-### 3. Claude Desktop / Claude Code 설정
+### 3. Claude Desktop / Claude Code 에 등록
+configure 가 끝나면 붙여넣을 JSON 블록을 터미널에 출력합니다. 또는 수동으로:
 ```json
 {
   "mcpServers": {

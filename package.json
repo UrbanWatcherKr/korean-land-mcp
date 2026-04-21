@@ -5,7 +5,8 @@
   "main": "dist/server.js",
   "type": "module",
   "scripts": {
-    "setup": "npm install && npm run build",
+    "setup": "npm install && npm run build && npm run configure",
+    "configure": "node scripts/configure.mjs",
     "dev": "tsx watch src/server.ts",
     "build": "tsc",
     "start": "node dist/server.js",
