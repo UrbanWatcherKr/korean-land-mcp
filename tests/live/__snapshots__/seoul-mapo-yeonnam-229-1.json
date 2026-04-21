@@ -1,0 +1,17 @@
+{
+  "query": "서울특별시 마포구 연남동 229-1",
+  "precision": "polygon",
+  "zone": "제2종일반주거지역",
+  "district_plan_names": [
+    "연남동 지구단위계획구역"
+  ],
+  "other_law": [
+    "축산:가축사육제한구역"
+  ],
+  "urban_facility_count": 1,
+  "priority_delegation_applies": false,
+  "priority_delegation_laws": [],
+  "land_transaction_permit_count": 3,
+  "buildings_present": true,
+  "layer_error_count": 1
+}

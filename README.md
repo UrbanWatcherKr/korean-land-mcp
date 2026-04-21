@@ -112,6 +112,27 @@ src/
     └── analyze_parcel.ts
 ```
 
+## 🧪 테스트
+
+**유닛 테스트** (순수 함수, API 키 불필요):
+```bash
+npm test
+```
+
+**Live smoke test** (실제 V-World 호출, `VWORLD_API_KEY` 필요):
+```bash
+# 단일 지번 디버그
+npx tsx tests/live/smoke-polygon.ts "서울특별시 마포구 연남동 229-1"
+
+# 3개 픽스처 회귀 테스트 (스냅샷 비교)
+npx tsx tests/live/smoke-fixtures.ts
+
+# 스냅샷 갱신 (V-World 데이터 변경 시)
+npx tsx tests/live/smoke-fixtures.ts --update
+```
+
+Fixtures: 도시 주거지(연남동), 농림지역+우선위임(세출리), 복합 용도지역+도시개발(갈매리).
+
 ## ⚠️ 알려진 한계
 
 - **점 기반 판정**: 기본 쿼리는 필지 중심점 1개를 V-World에 던진다. 필지 폴리곤 교차가 아니므로 경계에 걸친 케이스는 놓칠 수 있음. `get_urban_facility` 의 `radius_m` 는 BOX 필터로 이 한계를 완화하지만, "저촉" vs "접함" 최종 판정은 사용자 또는 담당 공무원의 폴리곤 교차 재검증이 필요.

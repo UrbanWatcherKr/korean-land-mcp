@@ -1,0 +1,18 @@
+{
+  "query": "충청남도 아산시 배방읍 세출리 63",
+  "precision": "polygon",
+  "zone": "농림지역",
+  "district_plan_names": [],
+  "other_law": [
+    "농지:농업진흥구역",
+    "축산:가축사육제한구역"
+  ],
+  "urban_facility_count": 0,
+  "priority_delegation_applies": true,
+  "priority_delegation_laws": [
+    "농지법 제32조"
+  ],
+  "land_transaction_permit_count": 0,
+  "buildings_present": false,
+  "layer_error_count": 1
+}
